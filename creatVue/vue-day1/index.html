@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="x-dns-prefetch-control" content="on">
+    <link rel="icon" href="data:;base64,=">
+    <title>vue3造轮子-第一天</title>
+</head>
+<body>
+
+    <div id="App">
+        <p>{{user}}</p>
+    </div>
+
+<!--    <script src="http://unpkg.com/vue@next"></script>-->
+
+    <script>
+        /*用自己的理解来实现 vue 的数据渲染*/
+
+        /*整体框架分析*/
+        /*1.Vue 是一个对象*/
+        /*2.它（Vue）调用了 一个名为 createApp 的方法 传入了一个 options 的对象为参数*/
+        /*3.在createApp 调用结束 暴露出一个 名为 mount 的方法 把 根节点 作为参数传入 */
+        const  Vue={
+            createApp(options){
+                return {
+                    mount(sel){
+
+
+                        /*这里的 sel 就是对应的根节点 */
+                        const parent = document.querySelector(sel);
+
+                        /* 接下来 就要把 parent 里面的子元素和 options 编译，渲染，最后挂载在 parent 里面 */
+                        /* 这里先忽略上面的 p 标签 把 他看成一个template */
+                        /*
+                        * <div id='App'>
+                        *   <template>
+                        *      <p>{{user}}</p>
+                        *   </template>
+                        * </div>
+                        * */
+                        /*这里的template 他是一个虚拟节点 它最后需要进行编译处理 最后挂载在parent 里*/
+                        /* 而 处理template 他一般是在 render（）的一个方法里 处理 ---> 步骤4 */
+
+                        /*5.接下来 把 options里的数据 和template 绑定 （对应步骤4 里面的可以直接 this获取到options 里面的data() 定义的user）*/
+                        /*先判断 我们声明的实例里有没有 render() 没有我们再创建它 */
+                        if(!options.render){
+                            options.render = this.compile(parent.innerHTML);
+                        }
+
+                        /*6.把options 里的data 数据绑定在 rander 里 让它内部能够调用 data() 里面的数据*/
+                        // const el = options.render.call(options.data());
+
+                        /*7.最后把对应的 子节点 el append 到 parent */
+                        // parent.innerHTML = "";
+                        // parent.appendChild(el);
+
+
+                        /*在定义的实例里 有data()  和setup() 都对应的 定义里user 值，在vue3 中
+                        * 它会先查询实例里是否含有 setup 如果里面定义了我们需要的值 那它直接从里面获取
+                        * 如果没有 那么它才会去查询 data 里的值
+                        * 相同的值 它以setup为主 */
+
+                        /*8.根据以上步骤
+                        * 先判断options 里是否含有 setup 和 data
+                        * 如果有 那我们分别定义一个对象来保存里面的数据 */
+                        if(options.setup){
+                            options.setupData = options.setup();
+                        }
+                        if(options.data){
+                            options.data = options.data();
+                        }
+
+                        /*接下来我们要在数据被读取的时候去对比 setup 和 data
+                        * 判断 我们所读取的值按照之前定义的顺序 分别从对应的 setup 和 data 中返回
+                        * 这里在 vue2 中监听数据的变化 用的是Object.defineproperty() 中的getter 来监听
+                        * 在vue3 中 监听数据变化 改用了 es6 的 proxy
+                        * 对于 Object.defineproperty 它是 监听对象的属性
+                        * 而 proxy 是监听对象本身  弊端 兼容性差 ie 11 下不兼容
+                        * */
+
+                        this.proxy = new Proxy(this,{
+                            set(target, p, value, receiver) {
+                            },
+                            get(target, p, receiver) {
+                                /*9.接下来 在监听到数据被读取的时候 我们要判断 p(属性本身)存在哪个 对象里
+                                * setup 为主 查不到才去 data 里查找*/
+                                if(p in options.setupData){
+                                    return options.setupData[p];
+                                }else {
+                                    return options.data[p];
+                                }
+                            }
+                        })
+
+                        /*10.接下来 把之前 步骤6 给render 赋值的数据 改变成proxy */
+                        const el = options.render.call(this.proxy);
+
+                        parent.innerHTML = "";
+                        parent.appendChild(el);
+                    },
+                    /*步骤4*/
+                    compile(template)
+                    {
+                        return function render() {
+                            /*这里相当于 解析 template 然后创建为虚拟节点 然后渲染数据 最后把虚拟节点 暴露出去作为子节点 */
+
+                            const p = document.createElement('p');
+                            /*到这里会 很好奇 this.user 是怎么来的 这里不用纠结 按照步骤来 */
+                            p.textContent = this.user2;
+                            return p;
+                        }
+                    }
+                }
+
+            }
+        }
+
+    </script>
+
+    <script>
+        
+        // 搭建基础的vue3框架
+
+        const App = Vue.createApp({
+            //vue 2 数据对象
+            data(){
+                return {
+                    user:"小面",
+                    user2:"我是小米"
+                }
+            },
+            //vue 3 的数据对象定义
+            setup(){
+                return {
+                    user:"setup 定义的 user"
+                }
+            }
+        }).mount("#App");
+
+    </script>
+</body>
+</html>
